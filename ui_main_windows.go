@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"unsafe"
 
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
@@ -51,6 +52,8 @@ func (a *RosApp) Run() error {
 
 	a.refreshServerList()
 	a.setStatus("就绪")
+	a.centerMainWindow()
+	a.mw.Show()
 
 	a.mw.Run()
 	return nil
@@ -62,6 +65,7 @@ func (a *RosApp) createMainWindow() error {
 		Title:    "Ros - RDP over SSH",
 		Size:     Size{Width: 360, Height: 300},
 		MinSize:  Size{Width: 360, Height: 300},
+		Visible:  false,
 		Layout:   VBox{MarginsZero: false},
 		Children: []Widget{
 			Composite{
@@ -226,6 +230,51 @@ func (a *RosApp) bindMainWindowEvents() {
 		}
 		*canceled = true
 		a.hideMainWindowToTray(true)
+	})
+}
+
+func (a *RosApp) centerMainWindow() {
+	if a.mw == nil || a.mw.IsDisposed() {
+		return
+	}
+
+	bounds := a.mw.BoundsPixels()
+	if bounds.Width <= 0 || bounds.Height <= 0 {
+		return
+	}
+
+	workArea := win.RECT{
+		Left:   0,
+		Top:    0,
+		Right:  int32(win.GetSystemMetrics(win.SM_CXSCREEN)),
+		Bottom: int32(win.GetSystemMetrics(win.SM_CYSCREEN)),
+	}
+
+	monitor := win.MonitorFromWindow(a.mw.Handle(), win.MONITOR_DEFAULTTONEAREST)
+	if monitor != 0 {
+		mi := win.MONITORINFO{CbSize: uint32(unsafe.Sizeof(win.MONITORINFO{}))}
+		if win.GetMonitorInfo(monitor, &mi) {
+			workArea = mi.RcWork
+		}
+	}
+
+	workWidth := int(workArea.Right - workArea.Left)
+	workHeight := int(workArea.Bottom - workArea.Top)
+	x := int(workArea.Left) + (workWidth-bounds.Width)/2
+	y := int(workArea.Top) + (workHeight-bounds.Height)/2
+
+	if x < int(workArea.Left) {
+		x = int(workArea.Left)
+	}
+	if y < int(workArea.Top) {
+		y = int(workArea.Top)
+	}
+
+	_ = a.mw.SetBoundsPixels(walk.Rectangle{
+		X:      x,
+		Y:      y,
+		Width:  bounds.Width,
+		Height: bounds.Height,
 	})
 }
 
