@@ -251,12 +251,19 @@ func (a *RosApp) showMainWindowFromTray() {
 }
 
 func (a *RosApp) exitFromTray() {
-	a.allowWindowClose = true
-	a.disposeNotifyIcon()
 	if a.mw == nil || a.mw.IsDisposed() {
 		return
 	}
-	_ = a.mw.Close()
+
+	a.syncUI(func() {
+		a.allowWindowClose = true
+		a.disposeNotifyIcon()
+		_ = a.mw.Close()
+		if a.mw != nil && !a.mw.IsDisposed() {
+			a.mw.Dispose()
+		}
+		walk.App().Exit(0)
+	})
 }
 
 func (a *RosApp) disposeNotifyIcon() {
