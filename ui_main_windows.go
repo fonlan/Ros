@@ -22,8 +22,12 @@ type RosApp struct {
 	mw         *walk.MainWindow
 	serverList *walk.ListBox
 	statusLbl  *walk.Label
+	notifyIcon *walk.NotifyIcon
+	appIcon    *walk.Icon
 
 	suppressConnectOnce bool
+	allowWindowClose    bool
+	trayHintShown       bool
 }
 
 func NewRosApp() (*RosApp, error) {
@@ -42,6 +46,7 @@ func (a *RosApp) Run() error {
 	if err := a.createMainWindow(); err != nil {
 		return err
 	}
+	defer a.disposeNotifyIcon()
 
 	a.refreshServerList()
 	a.setStatus("就绪")
@@ -112,6 +117,10 @@ func (a *RosApp) createMainWindow() error {
 	}
 
 	a.applyMainWindowIcon()
+	if err := a.initNotifyIcon(); err != nil {
+		return err
+	}
+	a.bindMainWindowEvents()
 	return nil
 }
 
@@ -120,6 +129,16 @@ func (a *RosApp) applyMainWindowIcon() {
 		return
 	}
 
+	if a.appIcon == nil {
+		a.appIcon = a.loadAppIcon()
+	}
+	if a.appIcon == nil {
+		return
+	}
+	_ = a.mw.SetIcon(a.appIcon)
+}
+
+func (a *RosApp) loadAppIcon() *walk.Icon {
 	iconPath := "app.ico"
 	if exePath, err := os.Executable(); err == nil {
 		candidate := filepath.Join(filepath.Dir(exePath), "app.ico")
@@ -130,9 +149,124 @@ func (a *RosApp) applyMainWindowIcon() {
 
 	icon, err := walk.NewIconFromFile(iconPath)
 	if err != nil {
+		return nil
+	}
+	return icon
+}
+
+func (a *RosApp) initNotifyIcon() error {
+	if a.mw == nil {
+		return nil
+	}
+
+	ni, err := walk.NewNotifyIcon(a.mw)
+	if err != nil {
+		return fmt.Errorf("初始化系统托盘失败: %w", err)
+	}
+	fail := func(prefix string, err error) error {
+		_ = ni.Dispose()
+		return fmt.Errorf("%s: %w", prefix, err)
+	}
+
+	if a.appIcon != nil {
+		if err := ni.SetIcon(a.appIcon); err != nil {
+			return fail("设置托盘图标失败", err)
+		}
+	}
+	if err := ni.SetToolTip("Ros - RDP SSH 辅助程序"); err != nil {
+		return fail("设置托盘提示失败", err)
+	}
+
+	showAction := walk.NewAction()
+	if err := showAction.SetText("显示主界面"); err != nil {
+		return fail("创建托盘菜单失败", err)
+	}
+	showAction.Triggered().Attach(func() {
+		a.showMainWindowFromTray()
+	})
+
+	exitAction := walk.NewAction()
+	if err := exitAction.SetText("退出"); err != nil {
+		return fail("创建托盘菜单失败", err)
+	}
+	exitAction.Triggered().Attach(func() {
+		a.exitFromTray()
+	})
+
+	if err := ni.ContextMenu().Actions().Add(showAction); err != nil {
+		return fail("添加托盘菜单失败", err)
+	}
+	if err := ni.ContextMenu().Actions().Add(exitAction); err != nil {
+		return fail("添加托盘菜单失败", err)
+	}
+
+	ni.MouseUp().Attach(func(x, y int, button walk.MouseButton) {
+		if button == walk.LeftButton {
+			a.showMainWindowFromTray()
+		}
+	})
+
+	if err := ni.SetVisible(true); err != nil {
+		return fail("显示托盘图标失败", err)
+	}
+
+	a.notifyIcon = ni
+	return nil
+}
+
+func (a *RosApp) bindMainWindowEvents() {
+	if a.mw == nil {
 		return
 	}
-	_ = a.mw.SetIcon(icon)
+
+	a.mw.Closing().Attach(func(canceled *bool, _ walk.CloseReason) {
+		if a.allowWindowClose {
+			return
+		}
+		*canceled = true
+		a.hideMainWindowToTray(true)
+	})
+}
+
+func (a *RosApp) hideMainWindowToTray(showTip bool) {
+	if a.mw == nil || a.mw.IsDisposed() {
+		return
+	}
+
+	a.mw.Hide()
+	if showTip && !a.trayHintShown && a.notifyIcon != nil {
+		_ = a.notifyIcon.ShowInfo("Ros", "程序已最小化到托盘，点击托盘图标可恢复主界面。")
+		a.trayHintShown = true
+	}
+}
+
+func (a *RosApp) showMainWindowFromTray() {
+	if a.mw == nil || a.mw.IsDisposed() {
+		return
+	}
+
+	a.mw.Show()
+	win.ShowWindow(a.mw.Handle(), win.SW_RESTORE)
+	win.SetForegroundWindow(a.mw.Handle())
+}
+
+func (a *RosApp) exitFromTray() {
+	a.allowWindowClose = true
+	a.disposeNotifyIcon()
+	if a.mw == nil || a.mw.IsDisposed() {
+		return
+	}
+	_ = a.mw.Close()
+}
+
+func (a *RosApp) disposeNotifyIcon() {
+	if a.notifyIcon == nil {
+		return
+	}
+
+	_ = a.notifyIcon.SetVisible(false)
+	_ = a.notifyIcon.Dispose()
+	a.notifyIcon = nil
 }
 
 func (a *RosApp) onAddClicked() {
@@ -257,10 +391,12 @@ func (a *RosApp) connectServer(server *ServerConfig) {
 	}
 
 	a.syncSetStatus(fmt.Sprintf("已启动 mstsc，正在连接: %s", server.Name))
+	a.syncHideMainWindowToTray(false)
 
 	waitErr := session.Wait()
 	session.Cleanup()
 	activeTunnel.Close()
+	a.syncShowMainWindowFromTray()
 
 	if waitErr != nil {
 		a.syncSetStatus(fmt.Sprintf("远程桌面会话结束（异常）: %v", waitErr))
@@ -319,10 +455,7 @@ func (a *RosApp) setStatus(text string) {
 }
 
 func (a *RosApp) syncSetStatus(text string) {
-	if a.mw == nil {
-		return
-	}
-	a.mw.Synchronize(func() {
+	a.syncUI(func() {
 		a.setStatus(text)
 	})
 }
@@ -335,11 +468,35 @@ func (a *RosApp) showError(err error) {
 }
 
 func (a *RosApp) syncShowError(err error) {
-	if err == nil || a.mw == nil {
+	if err == nil {
+		return
+	}
+	a.syncUI(func() {
+		a.showError(err)
+	})
+}
+
+func (a *RosApp) syncHideMainWindowToTray(showTip bool) {
+	a.syncUI(func() {
+		a.hideMainWindowToTray(showTip)
+	})
+}
+
+func (a *RosApp) syncShowMainWindowFromTray() {
+	a.syncUI(func() {
+		a.showMainWindowFromTray()
+	})
+}
+
+func (a *RosApp) syncUI(fn func()) {
+	if fn == nil || a.mw == nil || a.mw.IsDisposed() {
 		return
 	}
 	a.mw.Synchronize(func() {
-		a.showError(err)
+		if a.mw == nil || a.mw.IsDisposed() {
+			return
+		}
+		fn()
 	})
 }
 
