@@ -10,9 +10,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/lxn/win"
 )
+
+const createNoWindow = 0x08000000
 
 type RDPSession struct {
 	cmd         *exec.Cmd
@@ -115,7 +118,7 @@ func createTemporaryCredentials(rdp RDPConfig, localPort int) ([]string, error) 
 	})
 
 	for _, target := range targets {
-		cmd := exec.Command("cmdkey", "/generic:"+target, "/user:"+username, "/pass:"+rdp.Password)
+		cmd := hiddenCommand("cmdkey", "/generic:"+target, "/user:"+username, "/pass:"+rdp.Password)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			deleteCmdkeyTargets(targets)
 			return nil, fmt.Errorf("创建临时凭据失败(%s): %v, %s", target, err, strings.TrimSpace(string(out)))
@@ -126,9 +129,18 @@ func createTemporaryCredentials(rdp RDPConfig, localPort int) ([]string, error) 
 
 func deleteCmdkeyTargets(targets []string) {
 	for _, target := range targets {
-		cmd := exec.Command("cmdkey", "/delete:"+target)
+		cmd := hiddenCommand("cmdkey", "/delete:"+target)
 		_, _ = cmd.CombinedOutput()
 	}
+}
+
+func hiddenCommand(name string, args ...string) *exec.Cmd {
+	cmd := exec.Command(name, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: createNoWindow,
+	}
+	return cmd
 }
 
 func formatRDPUsername(rdp RDPConfig) string {
