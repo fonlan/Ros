@@ -50,7 +50,7 @@ func showTunnelDialog(owner walk.Form, initial *TunnelConfig, defaultPriority in
 	err := Dialog{
 		AssignTo: &dlg,
 		Title:    title,
-		MinSize:  Size{Width: 720, Height: 620},
+		MinSize:  Size{Width: 620, Height: 520},
 		Layout:   VBox{},
 		Children: []Widget{
 			GroupBox{
@@ -144,6 +144,8 @@ func showTunnelDialog(owner walk.Form, initial *TunnelConfig, defaultPriority in
 	if err != nil {
 		return nil, false, err
 	}
+
+	hideDialogTitleIcon(dlg)
 
 	if dlg.Run() != int(walk.DlgCmdOK) {
 		return nil, false, nil

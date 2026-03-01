@@ -63,7 +63,7 @@ func showServerDialog(owner walk.Form, initial *ServerConfig) (*ServerConfig, bo
 	err := Dialog{
 		AssignTo: &dlg,
 		Title:    title,
-		MinSize:  Size{Width: 780, Height: 620},
+		MinSize:  Size{Width: 560, Height: 430},
 		Layout:   VBox{},
 		Children: []Widget{
 			TabWidget{
@@ -92,80 +92,91 @@ func showServerDialog(owner walk.Form, initial *ServerConfig) (*ServerConfig, bo
 							ListBox{
 								AssignTo: &tunnelList,
 								Model:    tunnelItems(),
-								MinSize:  Size{Width: 700, Height: 340},
+								MinSize:  Size{Width: 420, Height: 150},
 							},
 							Composite{
-								Layout: HBox{},
+								Layout: VBox{},
 								Children: []Widget{
-									PushButton{
-										Text: "新增隧道",
-										OnClicked: func() {
-											tunnel, ok, err := showTunnelDialog(dlg, nil, len(working.Tunnels)+1)
-											if err != nil {
-												walk.MsgBox(dlg, "错误", err.Error(), walk.MsgBoxIconError)
-												return
-											}
-											if !ok || tunnel == nil {
-												return
-											}
-											working.Tunnels = append(working.Tunnels, tunnel)
-											normalizeTunnelPriorities(working.Tunnels)
-											refreshTunnelModel()
-											tunnelList.SetCurrentIndex(len(working.Tunnels) - 1)
+									Composite{
+										Layout: HBox{},
+										Children: []Widget{
+											PushButton{
+												Text: "新增隧道",
+												OnClicked: func() {
+													tunnel, ok, err := showTunnelDialog(dlg, nil, len(working.Tunnels)+1)
+													if err != nil {
+														walk.MsgBox(dlg, "错误", err.Error(), walk.MsgBoxIconError)
+														return
+													}
+													if !ok || tunnel == nil {
+														return
+													}
+													working.Tunnels = append(working.Tunnels, tunnel)
+													normalizeTunnelPriorities(working.Tunnels)
+													refreshTunnelModel()
+													tunnelList.SetCurrentIndex(len(working.Tunnels) - 1)
+												},
+											},
+											PushButton{
+												Text: "编辑隧道",
+												OnClicked: func() {
+													idx := tunnelList.CurrentIndex()
+													if idx < 0 || idx >= len(working.Tunnels) {
+														walk.MsgBox(dlg, "提示", "请先选中隧道", walk.MsgBoxIconInformation)
+														return
+													}
+													tunnel, ok, err := showTunnelDialog(dlg, working.Tunnels[idx], idx+1)
+													if err != nil {
+														walk.MsgBox(dlg, "错误", err.Error(), walk.MsgBoxIconError)
+														return
+													}
+													if !ok || tunnel == nil {
+														return
+													}
+													working.Tunnels[idx] = tunnel
+													normalizeTunnelPriorities(working.Tunnels)
+													refreshTunnelModel()
+													tunnelList.SetCurrentIndex(idx)
+												},
+											},
+											PushButton{
+												Text: "删除隧道",
+												OnClicked: func() {
+													idx := tunnelList.CurrentIndex()
+													if idx < 0 || idx >= len(working.Tunnels) {
+														walk.MsgBox(dlg, "提示", "请先选中隧道", walk.MsgBoxIconInformation)
+														return
+													}
+													working.Tunnels = append(working.Tunnels[:idx], working.Tunnels[idx+1:]...)
+													normalizeTunnelPriorities(working.Tunnels)
+													refreshTunnelModel()
+													if idx >= len(working.Tunnels) {
+														idx = len(working.Tunnels) - 1
+													}
+													tunnelList.SetCurrentIndex(idx)
+												},
+											},
+											HSpacer{},
 										},
 									},
-									PushButton{
-										Text: "编辑隧道",
-										OnClicked: func() {
-											idx := tunnelList.CurrentIndex()
-											if idx < 0 || idx >= len(working.Tunnels) {
-												walk.MsgBox(dlg, "提示", "请先选中隧道", walk.MsgBoxIconInformation)
-												return
-											}
-											tunnel, ok, err := showTunnelDialog(dlg, working.Tunnels[idx], idx+1)
-											if err != nil {
-												walk.MsgBox(dlg, "错误", err.Error(), walk.MsgBoxIconError)
-												return
-											}
-											if !ok || tunnel == nil {
-												return
-											}
-											working.Tunnels[idx] = tunnel
-											normalizeTunnelPriorities(working.Tunnels)
-											refreshTunnelModel()
-											tunnelList.SetCurrentIndex(idx)
-										},
-									},
-									PushButton{
-										Text: "删除隧道",
-										OnClicked: func() {
-											idx := tunnelList.CurrentIndex()
-											if idx < 0 || idx >= len(working.Tunnels) {
-												walk.MsgBox(dlg, "提示", "请先选中隧道", walk.MsgBoxIconInformation)
-												return
-											}
-											working.Tunnels = append(working.Tunnels[:idx], working.Tunnels[idx+1:]...)
-											normalizeTunnelPriorities(working.Tunnels)
-											refreshTunnelModel()
-											if idx >= len(working.Tunnels) {
-												idx = len(working.Tunnels) - 1
-											}
-											tunnelList.SetCurrentIndex(idx)
-										},
-									},
-									HSpacer{},
-									PushButton{
-										Text: "上移",
-										OnClicked: func() {
-											idx := tunnelList.CurrentIndex()
-											swapTunnel(idx, idx-1)
-										},
-									},
-									PushButton{
-										Text: "下移",
-										OnClicked: func() {
-											idx := tunnelList.CurrentIndex()
-											swapTunnel(idx, idx+1)
+									Composite{
+										Layout: HBox{},
+										Children: []Widget{
+											HSpacer{},
+											PushButton{
+												Text: "上移",
+												OnClicked: func() {
+													idx := tunnelList.CurrentIndex()
+													swapTunnel(idx, idx-1)
+												},
+											},
+											PushButton{
+												Text: "下移",
+												OnClicked: func() {
+													idx := tunnelList.CurrentIndex()
+													swapTunnel(idx, idx+1)
+												},
+											},
 										},
 									},
 								},
@@ -271,6 +282,8 @@ func showServerDialog(owner walk.Form, initial *ServerConfig) (*ServerConfig, bo
 	if err != nil {
 		return nil, false, err
 	}
+
+	hideDialogTitleIcon(dlg)
 
 	widthLE.SetEnabled(!working.RDP.AdaptiveResolution)
 	heightLE.SetEnabled(!working.RDP.AdaptiveResolution)
