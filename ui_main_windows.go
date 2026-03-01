@@ -25,9 +25,10 @@ type RosApp struct {
 	notifyIcon *walk.NotifyIcon
 	appIcon    *walk.Icon
 
-	suppressConnectOnce bool
-	allowWindowClose    bool
-	trayHintShown       bool
+	suppressConnectOnce    bool
+	triggerConnectOnSelect bool
+	allowWindowClose       bool
+	trayHintShown          bool
 }
 
 func NewRosApp() (*RosApp, error) {
@@ -58,7 +59,7 @@ func (a *RosApp) Run() error {
 func (a *RosApp) createMainWindow() error {
 	if err := (MainWindow{
 		AssignTo: &a.mw,
-		Title:    "Ros - RDP SSH 辅助程序",
+		Title:    "Ros - RDP over SSH",
 		Size:     Size{Width: 360, Height: 300},
 		MinSize:  Size{Width: 360, Height: 300},
 		Layout:   VBox{MarginsZero: false},
@@ -67,7 +68,7 @@ func (a *RosApp) createMainWindow() error {
 				Layout: HBox{MarginsZero: true},
 				Children: []Widget{
 					Label{
-						Text: "服务器列表（单击即连接）",
+						Text: "服务器列表（单击连接）",
 					},
 					HSpacer{},
 					PushButton{
@@ -357,8 +358,14 @@ func (a *RosApp) onDeleteClicked() {
 func (a *RosApp) onListSelectionChanged() {
 	if a.suppressConnectOnce {
 		a.suppressConnectOnce = false
+		a.triggerConnectOnSelect = false
 		return
 	}
+
+	if !a.triggerConnectOnSelect {
+		return
+	}
+	a.triggerConnectOnSelect = false
 	a.connectSelected(true)
 }
 
@@ -432,14 +439,31 @@ func (a *RosApp) refreshServerList() {
 }
 
 func (a *RosApp) onServerListMouseDown(x, y int, button walk.MouseButton) {
-	if a.serverList == nil || button&walk.RightButton == 0 {
+	if a.serverList == nil {
 		return
 	}
+
 	idx := a.serverListIndexAt(x, y)
-	if idx >= 0 && idx < len(a.cfg.Servers) && idx != a.serverList.CurrentIndex() {
-		a.suppressConnectOnce = true
-		_ = a.serverList.SetCurrentIndex(idx)
+
+	if button&walk.RightButton != 0 {
+		if idx >= 0 && idx < len(a.cfg.Servers) && idx != a.serverList.CurrentIndex() {
+			a.suppressConnectOnce = true
+			_ = a.serverList.SetCurrentIndex(idx)
+		}
+		return
 	}
+
+	if button&walk.LeftButton == 0 || idx < 0 || idx >= len(a.cfg.Servers) {
+		return
+	}
+
+	if idx == a.serverList.CurrentIndex() {
+		a.connectSelected(true)
+		return
+	}
+
+	a.triggerConnectOnSelect = true
+	_ = a.serverList.SetCurrentIndex(idx)
 }
 
 func (a *RosApp) serverListIndexAt(x, y int) int {
