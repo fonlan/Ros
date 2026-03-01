@@ -31,3 +31,6 @@ go.work.sum
 *.log
 tmp/
 temp/
+
+AGENTS.md
+build.bat

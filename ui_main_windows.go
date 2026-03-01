@@ -69,28 +69,33 @@ func (a *RosApp) createMainWindow() error {
 				Layout: HBox{},
 				Children: []Widget{
 					PushButton{
-						Text: "新增服务器",
+						Text:        "\uE710",
+						Font:        Font{Family: "Segoe MDL2 Assets", PointSize: 10},
+						MinSize:     Size{Width: 36, Height: 28},
+						MaxSize:     Size{Width: 36, Height: 28},
+						ToolTipText: "新增服务器",
 						OnClicked: func() {
 							a.onAddClicked()
 						},
 					},
 					PushButton{
-						Text: "编辑服务器",
+						Text:        "\uE70F",
+						Font:        Font{Family: "Segoe MDL2 Assets", PointSize: 10},
+						MinSize:     Size{Width: 36, Height: 28},
+						MaxSize:     Size{Width: 36, Height: 28},
+						ToolTipText: "编辑服务器",
 						OnClicked: func() {
 							a.onEditClicked()
 						},
 					},
 					PushButton{
-						Text: "删除服务器",
+						Text:        "\uE74D",
+						Font:        Font{Family: "Segoe MDL2 Assets", PointSize: 10},
+						MinSize:     Size{Width: 36, Height: 28},
+						MaxSize:     Size{Width: 36, Height: 28},
+						ToolTipText: "删除服务器",
 						OnClicked: func() {
 							a.onDeleteClicked()
-						},
-					},
-					HSpacer{},
-					PushButton{
-						Text: "连接",
-						OnClicked: func() {
-							a.onConnectClicked()
 						},
 					},
 				},
@@ -205,10 +210,6 @@ func (a *RosApp) onDeleteClicked() {
 
 	a.refreshServerList()
 	a.setStatus(fmt.Sprintf("已删除服务器: %s", server.Name))
-}
-
-func (a *RosApp) onConnectClicked() {
-	a.connectSelected(false)
 }
 
 func (a *RosApp) onListSelectionChanged() {
