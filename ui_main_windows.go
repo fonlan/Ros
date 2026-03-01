@@ -10,6 +10,7 @@ import (
 
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
+	"github.com/lxn/win"
 )
 
 type RosApp struct {
@@ -21,6 +22,8 @@ type RosApp struct {
 	mw         *walk.MainWindow
 	serverList *walk.ListBox
 	statusLbl  *walk.Label
+
+	suppressConnectOnce bool
 }
 
 func NewRosApp() (*RosApp, error) {
@@ -55,19 +58,13 @@ func (a *RosApp) createMainWindow() error {
 		MinSize:  Size{Width: 360, Height: 300},
 		Layout:   VBox{MarginsZero: false},
 		Children: []Widget{
-			Label{
-				Text: "服务器列表（单击即连接）",
-			},
-			ListBox{
-				AssignTo: &a.serverList,
-				MinSize:  Size{Width: 320, Height: 180},
-				OnCurrentIndexChanged: func() {
-					a.onListSelectionChanged()
-				},
-			},
 			Composite{
-				Layout: HBox{},
+				Layout: HBox{MarginsZero: true},
 				Children: []Widget{
+					Label{
+						Text: "服务器列表（单击即连接）",
+					},
+					HSpacer{},
 					PushButton{
 						Text:        "\uE710",
 						Font:        Font{Family: "Segoe MDL2 Assets", PointSize: 10},
@@ -78,23 +75,28 @@ func (a *RosApp) createMainWindow() error {
 							a.onAddClicked()
 						},
 					},
-					PushButton{
-						Text:        "\uE70F",
-						Font:        Font{Family: "Segoe MDL2 Assets", PointSize: 10},
-						MinSize:     Size{Width: 36, Height: 28},
-						MaxSize:     Size{Width: 36, Height: 28},
-						ToolTipText: "编辑服务器",
-						OnClicked: func() {
+				},
+			},
+			ListBox{
+				AssignTo:      &a.serverList,
+				MinSize:       Size{Width: 320, Height: 190},
+				StretchFactor: 1,
+				OnCurrentIndexChanged: func() {
+					a.onListSelectionChanged()
+				},
+				OnMouseDown: func(x, y int, button walk.MouseButton) {
+					a.onServerListMouseDown(x, y, button)
+				},
+				ContextMenuItems: []MenuItem{
+					Action{
+						Text: "编辑服务器",
+						OnTriggered: func() {
 							a.onEditClicked()
 						},
 					},
-					PushButton{
-						Text:        "\uE74D",
-						Font:        Font{Family: "Segoe MDL2 Assets", PointSize: 10},
-						MinSize:     Size{Width: 36, Height: 28},
-						MaxSize:     Size{Width: 36, Height: 28},
-						ToolTipText: "删除服务器",
-						OnClicked: func() {
+					Action{
+						Text: "删除服务器",
+						OnTriggered: func() {
 							a.onDeleteClicked()
 						},
 					},
@@ -182,7 +184,6 @@ func (a *RosApp) onEditClicked() {
 	}
 
 	a.refreshServerList()
-	a.serverList.SetCurrentIndex(idx)
 	a.setStatus(fmt.Sprintf("已更新服务器: %s", updated.Name))
 }
 
@@ -213,6 +214,10 @@ func (a *RosApp) onDeleteClicked() {
 }
 
 func (a *RosApp) onListSelectionChanged() {
+	if a.suppressConnectOnce {
+		a.suppressConnectOnce = false
+		return
+	}
 	a.connectSelected(true)
 }
 
@@ -281,6 +286,30 @@ func (a *RosApp) refreshServerList() {
 		items = append(items, fmt.Sprintf("%s  (隧道 %d)", server.Name, len(server.Tunnels)))
 	}
 	_ = a.serverList.SetModel(items)
+}
+
+func (a *RosApp) onServerListMouseDown(x, y int, button walk.MouseButton) {
+	if a.serverList == nil || button&walk.RightButton == 0 {
+		return
+	}
+	idx := a.serverListIndexAt(x, y)
+	if idx >= 0 && idx < len(a.cfg.Servers) && idx != a.serverList.CurrentIndex() {
+		a.suppressConnectOnce = true
+		_ = a.serverList.SetCurrentIndex(idx)
+	}
+}
+
+func (a *RosApp) serverListIndexAt(x, y int) int {
+	if a.serverList == nil {
+		return -1
+	}
+
+	lp := uintptr((uint32(y)&0xFFFF)<<16 | (uint32(x) & 0xFFFF))
+	result := uint32(a.serverList.SendMessage(win.LB_ITEMFROMPOINT, 0, lp))
+	if win.HIWORD(result) != 0 {
+		return -1
+	}
+	return int(win.LOWORD(result))
 }
 
 func (a *RosApp) setStatus(text string) {
