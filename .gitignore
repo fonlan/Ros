@@ -1,0 +1,33 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+
+# GitMemo local memory repo
+.mem/
+
+# Go build outputs / caches
+bin/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.out
+cover.out
+
+# Go workspace files
+go.work
+go.work.sum
+
+# Local env / temp
+.env
+.env.*
+*.log
+tmp/
+temp/
