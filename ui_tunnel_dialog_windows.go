@@ -24,12 +24,15 @@ func showTunnelDialog(owner walk.Form, initial *TunnelConfig, defaultPriority in
 
 	var dlg *walk.Dialog
 	var (
-		nameLE, hostLE, portLE, userLE                 *walk.LineEdit
-		authTypeCB                                     *walk.ComboBox
-		passwordLE, privateKeyPathLE, privateKeyPassLE *walk.LineEdit
-		remoteHostLE, remotePortLE, timeoutLE          *walk.LineEdit
-		proxyTypeCB                                    *walk.ComboBox
-		proxyAddrLE, proxyUserLE, proxyPassLE          *walk.LineEdit
+		nameLE, hostLE, portLE, userLE                             *walk.LineEdit
+		authTypeCB                                                 *walk.ComboBox
+		passwordLE, privateKeyPathLE, privateKeyPassLE             *walk.LineEdit
+		jumpHostLE, jumpPortLE, jumpUserLE                         *walk.LineEdit
+		jumpAuthTypeCB                                             *walk.ComboBox
+		jumpPasswordLE, jumpPrivateKeyPathLE, jumpPrivateKeyPassLE *walk.LineEdit
+		remoteHostLE, remotePortLE, timeoutLE                      *walk.LineEdit
+		proxyTypeCB                                                *walk.ComboBox
+		proxyAddrLE, proxyUserLE, proxyPassLE                      *walk.LineEdit
 	)
 
 	authTypeIndex := indexOf(authTypeItems, strings.ToLower(working.AuthType))
@@ -42,6 +45,15 @@ func showTunnelDialog(owner walk.Form, initial *TunnelConfig, defaultPriority in
 		proxyTypeIndex = 0
 	}
 
+	jumpAuthTypeIndex := indexOf(authTypeItems, strings.ToLower(working.JumpHost.AuthType))
+	if jumpAuthTypeIndex < 0 {
+		jumpAuthTypeIndex = 0
+	}
+	jumpPortText := ""
+	if working.JumpHost.SSHPort > 0 {
+		jumpPortText = strconv.Itoa(working.JumpHost.SSHPort)
+	}
+
 	title := "新增隧道"
 	if initial != nil {
 		title = "编辑隧道"
@@ -50,7 +62,7 @@ func showTunnelDialog(owner walk.Form, initial *TunnelConfig, defaultPriority in
 	err := Dialog{
 		AssignTo: &dlg,
 		Title:    title,
-		MinSize:  Size{Width: 620, Height: 520},
+		MinSize:  Size{Width: 620, Height: 700},
 		Layout:   VBox{},
 		Children: []Widget{
 			GroupBox{
@@ -80,6 +92,30 @@ func showTunnelDialog(owner walk.Form, initial *TunnelConfig, defaultPriority in
 				},
 			},
 			GroupBox{
+				Title:  "SSH 跳板机（可选）",
+				Layout: Grid{Columns: 2},
+				Children: []Widget{
+					Label{Text: "跳板机 Host（留空则不启用）"},
+					LineEdit{AssignTo: &jumpHostLE, Text: working.JumpHost.SSHHost},
+					Label{Text: "跳板机 Port"},
+					LineEdit{AssignTo: &jumpPortLE, Text: jumpPortText},
+					Label{Text: "跳板机用户名"},
+					LineEdit{AssignTo: &jumpUserLE, Text: working.JumpHost.SSHUser},
+					Label{Text: "跳板机认证方式"},
+					ComboBox{
+						AssignTo:     &jumpAuthTypeCB,
+						Model:        authTypeItems,
+						CurrentIndex: jumpAuthTypeIndex,
+					},
+					Label{Text: "跳板机密码（password）"},
+					LineEdit{AssignTo: &jumpPasswordLE, Text: working.JumpHost.Password, PasswordMode: true},
+					Label{Text: "跳板机私钥路径（key）"},
+					LineEdit{AssignTo: &jumpPrivateKeyPathLE, Text: working.JumpHost.PrivateKeyPath},
+					Label{Text: "跳板机私钥口令（可选）"},
+					LineEdit{AssignTo: &jumpPrivateKeyPassLE, Text: working.JumpHost.PrivateKeyPassphrase, PasswordMode: true},
+				},
+			},
+			GroupBox{
 				Title:  "端口映射",
 				Layout: Grid{Columns: 2},
 				Children: []Widget{
@@ -95,6 +131,8 @@ func showTunnelDialog(owner walk.Form, initial *TunnelConfig, defaultPriority in
 				Title:  "代理配置",
 				Layout: Grid{Columns: 2},
 				Children: []Widget{
+					Label{Text: "说明"},
+					Label{Text: "启用跳板机时，代理仅用于连接跳板机"},
 					Label{Text: "代理类型"},
 					ComboBox{
 						AssignTo:     &proxyTypeCB,
@@ -120,6 +158,8 @@ func showTunnelDialog(owner walk.Form, initial *TunnelConfig, defaultPriority in
 								working,
 								nameLE, hostLE, portLE, userLE,
 								authTypeCB, passwordLE, privateKeyPathLE, privateKeyPassLE,
+								jumpHostLE, jumpPortLE, jumpUserLE,
+								jumpAuthTypeCB, jumpPasswordLE, jumpPrivateKeyPathLE, jumpPrivateKeyPassLE,
 								remoteHostLE, remotePortLE, timeoutLE,
 								proxyTypeCB, proxyAddrLE, proxyUserLE, proxyPassLE,
 							)
@@ -159,6 +199,9 @@ func collectTunnelFromDialog(
 	nameLE, hostLE, portLE, userLE *walk.LineEdit,
 	authTypeCB *walk.ComboBox,
 	passwordLE, privateKeyPathLE, privateKeyPassLE *walk.LineEdit,
+	jumpHostLE, jumpPortLE, jumpUserLE *walk.LineEdit,
+	jumpAuthTypeCB *walk.ComboBox,
+	jumpPasswordLE, jumpPrivateKeyPathLE, jumpPrivateKeyPassLE *walk.LineEdit,
 	remoteHostLE, remotePortLE, timeoutLE *walk.LineEdit,
 	proxyTypeCB *walk.ComboBox,
 	proxyAddrLE, proxyUserLE, proxyPassLE *walk.LineEdit,
@@ -201,6 +244,37 @@ func collectTunnelFromDialog(
 	}
 	if next.AuthType == "key" && next.PrivateKeyPath == "" {
 		return nil, fmt.Errorf("认证方式为 key 时，私钥路径不能为空")
+	}
+
+	next.JumpHost = JumpConfig{}
+	next.JumpHost.SSHHost = strings.TrimSpace(jumpHostLE.Text())
+	if next.JumpHost.SSHHost != "" {
+		jumpPort, err := strconv.Atoi(strings.TrimSpace(jumpPortLE.Text()))
+		if err != nil || jumpPort <= 0 {
+			return nil, fmt.Errorf("跳板机 Port 必须是正整数")
+		}
+		next.JumpHost.SSHPort = jumpPort
+
+		next.JumpHost.SSHUser = strings.TrimSpace(jumpUserLE.Text())
+		if next.JumpHost.SSHUser == "" {
+			return nil, fmt.Errorf("跳板机用户名不能为空")
+		}
+
+		jumpAuthIdx := jumpAuthTypeCB.CurrentIndex()
+		if jumpAuthIdx < 0 || jumpAuthIdx >= len(authTypeItems) {
+			jumpAuthIdx = 0
+		}
+		next.JumpHost.AuthType = authTypeItems[jumpAuthIdx]
+		next.JumpHost.Password = jumpPasswordLE.Text()
+		next.JumpHost.PrivateKeyPath = strings.TrimSpace(jumpPrivateKeyPathLE.Text())
+		next.JumpHost.PrivateKeyPassphrase = jumpPrivateKeyPassLE.Text()
+
+		if next.JumpHost.AuthType == "password" && next.JumpHost.Password == "" {
+			return nil, fmt.Errorf("跳板机认证方式为 password 时，密码不能为空")
+		}
+		if next.JumpHost.AuthType == "key" && next.JumpHost.PrivateKeyPath == "" {
+			return nil, fmt.Errorf("跳板机认证方式为 key 时，私钥路径不能为空")
+		}
 	}
 
 	next.RemoteHost = strings.TrimSpace(remoteHostLE.Text())

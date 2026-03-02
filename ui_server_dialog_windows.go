@@ -23,8 +23,17 @@ func showServerDialog(owner walk.Form, initial *ServerConfig) (*ServerConfig, bo
 	tunnelItems := func() []string {
 		items := make([]string, 0, len(working.Tunnels))
 		for idx, tunnel := range working.Tunnels {
+			jumpInfo := "direct"
+			if tunnel.JumpHost.SSHHost != "" {
+				jumpInfo = fmt.Sprintf(
+					"jump=%s@%s:%d",
+					tunnel.JumpHost.SSHUser,
+					tunnel.JumpHost.SSHHost,
+					tunnel.JumpHost.SSHPort,
+				)
+			}
 			items = append(items, fmt.Sprintf(
-				"%d. %s | %s@%s:%d -> %s:%d | proxy=%s",
+				"%d. %s | %s@%s:%d -> %s:%d | %s | proxy=%s",
 				idx+1,
 				displayTunnelName(tunnel),
 				tunnel.SSHUser,
@@ -32,6 +41,7 @@ func showServerDialog(owner walk.Form, initial *ServerConfig) (*ServerConfig, bo
 				tunnel.SSHPort,
 				tunnel.RemoteHost,
 				tunnel.RemotePort,
+				jumpInfo,
 				tunnel.Proxy.Type,
 			))
 		}

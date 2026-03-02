@@ -91,6 +91,7 @@ func (a *RosApp) createMainWindow() error {
 			},
 			ListBox{
 				AssignTo:      &a.serverList,
+				Font:          Font{Family: "MS Shell Dlg 2", PointSize: 9},
 				MinSize:       Size{Width: 320, Height: 190},
 				StretchFactor: 1,
 				OnCurrentIndexChanged: func() {
@@ -181,7 +182,7 @@ func (a *RosApp) initNotifyIcon() error {
 			return fail("设置托盘图标失败", err)
 		}
 	}
-	if err := ni.SetToolTip("Ros - RDP SSH 辅助程序"); err != nil {
+	if err := ni.SetToolTip("Ros - RDP over SSH"); err != nil {
 		return fail("设置托盘提示失败", err)
 	}
 
@@ -450,6 +451,9 @@ func (a *RosApp) connectServer(serverID string, server *ServerConfig) {
 		a.syncShowError(fmt.Errorf("建立 SSH 隧道失败: %w", err))
 		return
 	}
+	activeTunnel.SetStatusHandler(func(message string) {
+		a.syncSetStatus(message)
+	})
 
 	a.syncSetStatus(fmt.Sprintf(
 		"隧道建立成功: %s -> 127.0.0.1:%d",

@@ -55,10 +55,21 @@ type TunnelConfig struct {
 	Password             string      `json:"password"`
 	PrivateKeyPath       string      `json:"private_key_path"`
 	PrivateKeyPassphrase string      `json:"private_key_passphrase"`
+	JumpHost             JumpConfig  `json:"jump_host"`
 	Proxy                ProxyConfig `json:"proxy"`
 	RemoteHost           string      `json:"remote_host"`
 	RemotePort           int         `json:"remote_port"`
 	ConnectTimeoutSec    int         `json:"connect_timeout_sec"`
+}
+
+type JumpConfig struct {
+	SSHHost              string `json:"ssh_host"`
+	SSHPort              int    `json:"ssh_port"`
+	SSHUser              string `json:"ssh_user"`
+	AuthType             string `json:"auth_type"`
+	Password             string `json:"password"`
+	PrivateKeyPath       string `json:"private_key_path"`
+	PrivateKeyPassphrase string `json:"private_key_passphrase"`
 }
 
 type ProxyConfig struct {
@@ -192,6 +203,16 @@ func normalizeTunnelConfig(tunnel *TunnelConfig) {
 	}
 	if tunnel.Proxy.Type == "" {
 		tunnel.Proxy.Type = "none"
+	}
+	if tunnel.JumpHost.SSHHost == "" {
+		tunnel.JumpHost = JumpConfig{}
+	} else {
+		if tunnel.JumpHost.SSHPort <= 0 {
+			tunnel.JumpHost.SSHPort = defaultSSHPort
+		}
+		if tunnel.JumpHost.AuthType == "" {
+			tunnel.JumpHost.AuthType = "password"
+		}
 	}
 }
 
