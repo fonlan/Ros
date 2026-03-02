@@ -18,6 +18,9 @@ type RosApp struct {
 
 	mu sync.Mutex
 
+	connectMu       sync.Mutex
+	activeServerIDs map[string]struct{}
+
 	mw         *walk.MainWindow
 	serverList *walk.ListBox
 	statusLbl  *walk.Label
@@ -37,8 +40,9 @@ func NewRosApp() (*RosApp, error) {
 	}
 
 	return &RosApp{
-		configPath: configPath,
-		cfg:        cfg,
+		configPath:      configPath,
+		cfg:             cfg,
+		activeServerIDs: map[string]struct{}{},
 	}, nil
 }
 
@@ -418,7 +422,7 @@ func (a *RosApp) onListSelectionChanged() {
 }
 
 func (a *RosApp) connectSelected(silentIfNone bool) {
-	server, _ := a.selectedServer()
+	server, idx := a.selectedServer()
 	if server == nil {
 		if !silentIfNone {
 			a.showInfo("请先选中服务器")
@@ -426,13 +430,21 @@ func (a *RosApp) connectSelected(silentIfNone bool) {
 		return
 	}
 
+	serverID := a.serverActiveKey(server, idx)
+	if !a.tryMarkServerActive(serverID) {
+		a.setStatus(fmt.Sprintf("服务器已连接或正在连接，忽略重复点击: %s", server.Name))
+		return
+	}
+
 	serverCopy := cloneServerConfig(server)
 	a.setStatus(fmt.Sprintf("开始连接: %s", serverCopy.Name))
 
-	go a.connectServer(serverCopy)
+	go a.connectServer(serverID, serverCopy)
 }
 
-func (a *RosApp) connectServer(server *ServerConfig) {
+func (a *RosApp) connectServer(serverID string, server *ServerConfig) {
+	defer a.clearServerActive(serverID)
+
 	activeTunnel, usedTunnel, err := StartTunnelWithFallback(server.Tunnels)
 	if err != nil {
 		a.syncShowError(fmt.Errorf("建立 SSH 隧道失败: %w", err))
@@ -581,4 +593,42 @@ func (a *RosApp) syncUI(fn func()) {
 
 func (a *RosApp) showInfo(message string) {
 	walk.MsgBox(a.mw, "提示", message, walk.MsgBoxIconInformation)
+}
+
+func (a *RosApp) serverActiveKey(server *ServerConfig, idx int) string {
+	if server == nil {
+		return ""
+	}
+	if server.ID != "" {
+		return server.ID
+	}
+	return fmt.Sprintf("idx:%d", idx)
+}
+
+func (a *RosApp) tryMarkServerActive(serverID string) bool {
+	if serverID == "" {
+		return true
+	}
+
+	a.connectMu.Lock()
+	defer a.connectMu.Unlock()
+
+	if _, exists := a.activeServerIDs[serverID]; exists {
+		return false
+	}
+	if a.activeServerIDs == nil {
+		a.activeServerIDs = map[string]struct{}{}
+	}
+	a.activeServerIDs[serverID] = struct{}{}
+	return true
+}
+
+func (a *RosApp) clearServerActive(serverID string) {
+	if serverID == "" {
+		return
+	}
+
+	a.connectMu.Lock()
+	delete(a.activeServerIDs, serverID)
+	a.connectMu.Unlock()
 }
