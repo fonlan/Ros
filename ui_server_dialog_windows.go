@@ -45,12 +45,21 @@ func showServerDialog(owner walk.Form, initial *ServerConfig) (*ServerConfig, bo
 		_ = tunnelList.SetModel(tunnelItems())
 	}
 
+	reindexTunnelPriorities := func() {
+		for i, tunnel := range working.Tunnels {
+			if tunnel == nil {
+				continue
+			}
+			tunnel.Priority = i + 1
+		}
+	}
+
 	swapTunnel := func(i, j int) {
 		if i < 0 || j < 0 || i >= len(working.Tunnels) || j >= len(working.Tunnels) {
 			return
 		}
 		working.Tunnels[i], working.Tunnels[j] = working.Tunnels[j], working.Tunnels[i]
-		normalizeTunnelPriorities(working.Tunnels)
+		reindexTunnelPriorities()
 		refreshTunnelModel()
 		tunnelList.SetCurrentIndex(j)
 	}
@@ -110,7 +119,7 @@ func showServerDialog(owner walk.Form, initial *ServerConfig) (*ServerConfig, bo
 												return
 											}
 											working.Tunnels = append(working.Tunnels, tunnel)
-											normalizeTunnelPriorities(working.Tunnels)
+											reindexTunnelPriorities()
 											refreshTunnelModel()
 											tunnelList.SetCurrentIndex(len(working.Tunnels) - 1)
 										},
@@ -132,7 +141,7 @@ func showServerDialog(owner walk.Form, initial *ServerConfig) (*ServerConfig, bo
 												return
 											}
 											working.Tunnels[idx] = tunnel
-											normalizeTunnelPriorities(working.Tunnels)
+											reindexTunnelPriorities()
 											refreshTunnelModel()
 											tunnelList.SetCurrentIndex(idx)
 										},
@@ -146,7 +155,7 @@ func showServerDialog(owner walk.Form, initial *ServerConfig) (*ServerConfig, bo
 												return
 											}
 											working.Tunnels = append(working.Tunnels[:idx], working.Tunnels[idx+1:]...)
-											normalizeTunnelPriorities(working.Tunnels)
+											reindexTunnelPriorities()
 											refreshTunnelModel()
 											if idx >= len(working.Tunnels) {
 												idx = len(working.Tunnels) - 1
