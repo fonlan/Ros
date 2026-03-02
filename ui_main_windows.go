@@ -4,8 +4,6 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"sync"
 	"unsafe"
 
@@ -144,19 +142,20 @@ func (a *RosApp) applyMainWindowIcon() {
 }
 
 func (a *RosApp) loadAppIcon() *walk.Icon {
-	iconPath := "app.ico"
-	if exePath, err := os.Executable(); err == nil {
-		candidate := filepath.Join(filepath.Dir(exePath), "app.ico")
-		if _, statErr := os.Stat(candidate); statErr == nil {
-			iconPath = candidate
+	// rsrc with manifest typically assigns group icon ID 2; without manifest it may be 1.
+	for _, id := range []int{2, 1} {
+		if icon, err := walk.NewIconFromResourceId(id); err == nil {
+			return icon
 		}
 	}
 
-	icon, err := walk.NewIconFromFile(iconPath)
-	if err != nil {
-		return nil
+	for id := 3; id <= 16; id++ {
+		if icon, err := walk.NewIconFromResourceId(id); err == nil {
+			return icon
+		}
 	}
-	return icon
+
+	return nil
 }
 
 func (a *RosApp) initNotifyIcon() error {
