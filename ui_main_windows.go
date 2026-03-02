@@ -20,6 +20,7 @@ type RosApp struct {
 
 	connectMu       sync.Mutex
 	activeServerIDs map[string]struct{}
+	activeTunnelMap map[string]string
 
 	mw         *walk.MainWindow
 	serverList *walk.ListBox
@@ -43,6 +44,7 @@ func NewRosApp() (*RosApp, error) {
 		configPath:      configPath,
 		cfg:             cfg,
 		activeServerIDs: map[string]struct{}{},
+		activeTunnelMap: map[string]string{},
 	}, nil
 }
 
@@ -455,9 +457,13 @@ func (a *RosApp) connectServer(serverID string, server *ServerConfig) {
 		a.syncSetStatus(message)
 	})
 
+	tunnelName := displayTunnelName(usedTunnel)
+	a.setServerActiveTunnelName(serverID, tunnelName)
+	a.syncRefreshServerList()
+
 	a.syncSetStatus(fmt.Sprintf(
 		"隧道建立成功: %s -> 127.0.0.1:%d",
-		displayTunnelName(usedTunnel),
+		tunnelName,
 		activeTunnel.LocalPort,
 	))
 
@@ -496,8 +502,29 @@ func (a *RosApp) selectedServer() (*ServerConfig, int) {
 
 func (a *RosApp) refreshServerList() {
 	items := make([]string, 0, len(a.cfg.Servers))
-	for _, server := range a.cfg.Servers {
-		items = append(items, fmt.Sprintf("%s  (隧道 %d)", server.Name, len(server.Tunnels)))
+
+	a.connectMu.Lock()
+	activeIDs := make(map[string]struct{}, len(a.activeServerIDs))
+	for id := range a.activeServerIDs {
+		activeIDs[id] = struct{}{}
+	}
+	tunnelMap := make(map[string]string, len(a.activeTunnelMap))
+	for id, tunnelName := range a.activeTunnelMap {
+		tunnelMap[id] = tunnelName
+	}
+	a.connectMu.Unlock()
+
+	for idx, server := range a.cfg.Servers {
+		item := fmt.Sprintf("%s  (隧道 %d)", server.Name, len(server.Tunnels))
+		serverID := a.serverActiveKey(server, idx)
+		if _, active := activeIDs[serverID]; active {
+			if tunnelName := tunnelMap[serverID]; tunnelName != "" {
+				item = fmt.Sprintf("%s  (已连接: %s)", server.Name, tunnelName)
+			} else {
+				item = fmt.Sprintf("%s  (连接中...)", server.Name)
+			}
+		}
+		items = append(items, item)
 	}
 	_ = a.serverList.SetModel(items)
 }
@@ -552,6 +579,12 @@ func (a *RosApp) setStatus(text string) {
 func (a *RosApp) syncSetStatus(text string) {
 	a.syncUI(func() {
 		a.setStatus(text)
+	})
+}
+
+func (a *RosApp) syncRefreshServerList() {
+	a.syncUI(func() {
+		a.refreshServerList()
 	})
 }
 
@@ -623,8 +656,25 @@ func (a *RosApp) tryMarkServerActive(serverID string) bool {
 	if a.activeServerIDs == nil {
 		a.activeServerIDs = map[string]struct{}{}
 	}
+	if a.activeTunnelMap == nil {
+		a.activeTunnelMap = map[string]string{}
+	}
+	delete(a.activeTunnelMap, serverID)
 	a.activeServerIDs[serverID] = struct{}{}
 	return true
+}
+
+func (a *RosApp) setServerActiveTunnelName(serverID, tunnelName string) {
+	if serverID == "" {
+		return
+	}
+
+	a.connectMu.Lock()
+	if a.activeTunnelMap == nil {
+		a.activeTunnelMap = map[string]string{}
+	}
+	a.activeTunnelMap[serverID] = tunnelName
+	a.connectMu.Unlock()
 }
 
 func (a *RosApp) clearServerActive(serverID string) {
@@ -634,5 +684,7 @@ func (a *RosApp) clearServerActive(serverID string) {
 
 	a.connectMu.Lock()
 	delete(a.activeServerIDs, serverID)
+	delete(a.activeTunnelMap, serverID)
 	a.connectMu.Unlock()
+	a.syncRefreshServerList()
 }
