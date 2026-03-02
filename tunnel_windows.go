@@ -99,13 +99,15 @@ func (t *ActiveTunnel) isClosed() bool {
 }
 
 func StartTunnelWithFallback(tunnels []*TunnelConfig) (*ActiveTunnel, *TunnelConfig, error) {
-	if len(tunnels) == 0 {
-		return nil, nil, errors.New("没有可用 SSH 隧道配置")
-	}
-
 	candidates := make([]*TunnelConfig, 0, len(tunnels))
 	for _, tunnel := range tunnels {
+		if tunnel == nil || !isTunnelEnabled(tunnel) {
+			continue
+		}
 		candidates = append(candidates, cloneTunnelConfig(tunnel))
+	}
+	if len(candidates) == 0 {
+		return nil, nil, errors.New("没有已启用的 SSH 隧道配置")
 	}
 
 	sort.SliceStable(candidates, func(i, j int) bool {

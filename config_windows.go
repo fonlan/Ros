@@ -48,6 +48,7 @@ type RDPConfig struct {
 type TunnelConfig struct {
 	Name                 string      `json:"name"`
 	Priority             int         `json:"priority"`
+	Enabled              *bool       `json:"enabled,omitempty"`
 	SSHHost              string      `json:"ssh_host"`
 	SSHPort              int         `json:"ssh_port"`
 	SSHUser              string      `json:"ssh_user"`
@@ -77,6 +78,28 @@ type ProxyConfig struct {
 	Address  string `json:"address"`
 	Username string `json:"username"`
 	Password string `json:"password"`
+}
+
+func boolPtr(v bool) *bool {
+	b := v
+	return &b
+}
+
+func isTunnelEnabled(tunnel *TunnelConfig) bool {
+	if tunnel == nil || tunnel.Enabled == nil {
+		return true
+	}
+	return *tunnel.Enabled
+}
+
+func setTunnelEnabled(tunnel *TunnelConfig, enabled bool) {
+	if tunnel == nil {
+		return
+	}
+	if tunnel.Enabled == nil {
+		tunnel.Enabled = new(bool)
+	}
+	*tunnel.Enabled = enabled
 }
 
 func loadConfig() (string, *AppConfig, error) {
@@ -183,6 +206,9 @@ func normalizeTunnelConfig(tunnel *TunnelConfig) {
 		return
 	}
 
+	if tunnel.Enabled == nil {
+		setTunnelEnabled(tunnel, true)
+	}
 	if tunnel.Name == "" {
 		tunnel.Name = "隧道"
 	}
@@ -265,6 +291,7 @@ func cloneTunnelConfig(src *TunnelConfig) *TunnelConfig {
 		tunnel := &TunnelConfig{
 			Name:              "隧道",
 			Priority:          1,
+			Enabled:           boolPtr(true),
 			SSHPort:           defaultSSHPort,
 			AuthType:          "password",
 			RemoteHost:        "127.0.0.1",
@@ -278,6 +305,10 @@ func cloneTunnelConfig(src *TunnelConfig) *TunnelConfig {
 	}
 
 	cloned := *src
+	if src.Enabled != nil {
+		enabled := *src.Enabled
+		cloned.Enabled = &enabled
+	}
 	normalizeTunnelConfig(&cloned)
 	return &cloned
 }

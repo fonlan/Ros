@@ -24,6 +24,7 @@ func showTunnelDialog(owner walk.Form, initial *TunnelConfig, defaultPriority in
 
 	var dlg *walk.Dialog
 	var (
+		enabledCB                                                  *walk.CheckBox
 		nameLE, hostLE, portLE, userLE                             *walk.LineEdit
 		authTypeCB                                                 *walk.ComboBox
 		passwordLE, privateKeyPathLE, privateKeyPassLE             *walk.LineEdit
@@ -69,6 +70,12 @@ func showTunnelDialog(owner walk.Form, initial *TunnelConfig, defaultPriority in
 				Title:  "SSH 配置",
 				Layout: Grid{Columns: 2},
 				Children: []Widget{
+					Label{Text: "启用状态"},
+					CheckBox{
+						AssignTo: &enabledCB,
+						Text:     "启用此隧道",
+						Checked:  isTunnelEnabled(working),
+					},
 					Label{Text: "隧道名称"},
 					LineEdit{AssignTo: &nameLE, Text: working.Name},
 					Label{Text: "SSH Host"},
@@ -156,6 +163,7 @@ func showTunnelDialog(owner walk.Form, initial *TunnelConfig, defaultPriority in
 						OnClicked: func() {
 							tunnel, err := collectTunnelFromDialog(
 								working,
+								enabledCB,
 								nameLE, hostLE, portLE, userLE,
 								authTypeCB, passwordLE, privateKeyPathLE, privateKeyPassLE,
 								jumpHostLE, jumpPortLE, jumpUserLE,
@@ -196,6 +204,7 @@ func showTunnelDialog(owner walk.Form, initial *TunnelConfig, defaultPriority in
 
 func collectTunnelFromDialog(
 	base *TunnelConfig,
+	enabledCB *walk.CheckBox,
 	nameLE, hostLE, portLE, userLE *walk.LineEdit,
 	authTypeCB *walk.ComboBox,
 	passwordLE, privateKeyPathLE, privateKeyPassLE *walk.LineEdit,
@@ -207,6 +216,7 @@ func collectTunnelFromDialog(
 	proxyAddrLE, proxyUserLE, proxyPassLE *walk.LineEdit,
 ) (*TunnelConfig, error) {
 	next := cloneTunnelConfig(base)
+	setTunnelEnabled(next, enabledCB.Checked())
 
 	next.Name = strings.TrimSpace(nameLE.Text())
 	if next.Name == "" {

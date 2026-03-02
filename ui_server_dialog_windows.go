@@ -23,6 +23,10 @@ func showServerDialog(owner walk.Form, initial *ServerConfig) (*ServerConfig, bo
 	tunnelItems := func() []string {
 		items := make([]string, 0, len(working.Tunnels))
 		for idx, tunnel := range working.Tunnels {
+			enabledText := "启用"
+			if !isTunnelEnabled(tunnel) {
+				enabledText = "禁用"
+			}
 			jumpInfo := "direct"
 			if tunnel.JumpHost.SSHHost != "" {
 				jumpInfo = fmt.Sprintf(
@@ -33,8 +37,9 @@ func showServerDialog(owner walk.Form, initial *ServerConfig) (*ServerConfig, bo
 				)
 			}
 			items = append(items, fmt.Sprintf(
-				"%d. %s | %s@%s:%d -> %s:%d | %s | proxy=%s",
+				"%d. [%s] %s | %s@%s:%d -> %s:%d | %s | proxy=%s",
 				idx+1,
+				enabledText,
 				displayTunnelName(tunnel),
 				tunnel.SSHUser,
 				tunnel.SSHHost,
@@ -106,7 +111,7 @@ func showServerDialog(owner walk.Form, initial *ServerConfig) (*ServerConfig, bo
 						Layout: VBox{},
 						Children: []Widget{
 							Label{
-								Text: "连接时按列表顺序（优先级）逐个尝试，直到某个隧道建立成功。",
+								Text: "连接时按列表顺序（优先级）逐个尝试已启用隧道，直到某个隧道建立成功。",
 							},
 							ListBox{
 								AssignTo:      &tunnelList,
