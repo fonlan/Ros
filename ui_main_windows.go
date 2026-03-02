@@ -32,6 +32,9 @@ type RosApp struct {
 	triggerConnectOnSelect bool
 	allowWindowClose       bool
 	trayHintShown          bool
+	lastNormalBounds       walk.Rectangle
+	wasMinimized           bool
+	restoringWindowBounds  bool
 }
 
 func NewRosApp() (*RosApp, error) {
@@ -230,6 +233,10 @@ func (a *RosApp) bindMainWindowEvents() {
 		return
 	}
 
+	a.mw.BoundsChanged().Attach(func() {
+		a.handleMainWindowBoundsChanged()
+	})
+
 	a.mw.Closing().Attach(func(canceled *bool, _ walk.CloseReason) {
 		if a.allowWindowClose {
 			return
@@ -237,6 +244,47 @@ func (a *RosApp) bindMainWindowEvents() {
 		*canceled = true
 		a.hideMainWindowToTray(true)
 	})
+}
+
+func (a *RosApp) handleMainWindowBoundsChanged() {
+	if a.mw == nil || a.mw.IsDisposed() || a.restoringWindowBounds {
+		return
+	}
+
+	hwnd := a.mw.Handle()
+	if hwnd == 0 {
+		return
+	}
+
+	if win.IsIconic(hwnd) {
+		a.wasMinimized = true
+		return
+	}
+
+	if win.IsZoomed(hwnd) {
+		a.wasMinimized = false
+		return
+	}
+
+	bounds := a.mw.BoundsPixels()
+	if bounds.Width <= 0 || bounds.Height <= 0 {
+		return
+	}
+
+	if a.wasMinimized && a.lastNormalBounds.Width > 0 && a.lastNormalBounds.Height > 0 {
+		if bounds.Width != a.lastNormalBounds.Width || bounds.Height != a.lastNormalBounds.Height {
+			a.restoringWindowBounds = true
+			_ = a.mw.SetSizePixels(walk.Size{
+				Width:  a.lastNormalBounds.Width,
+				Height: a.lastNormalBounds.Height,
+			})
+			a.restoringWindowBounds = false
+			bounds = a.mw.BoundsPixels()
+		}
+	}
+
+	a.wasMinimized = false
+	a.lastNormalBounds = bounds
 }
 
 func (a *RosApp) centerMainWindow() {
