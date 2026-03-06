@@ -76,27 +76,45 @@ func (s *RDPSession) Cleanup() {
 func writeRDPTempFile(server *ServerConfig, localPort int) (string, error) {
 	width, height := resolveResolution(server.RDP)
 	username := formatRDPUsername(server.RDP)
+	driveStoreDirect := driveRedirectValue(server.RDP)
 
 	lines := []string{
 		"screen mode id:i:2",
 		fmt.Sprintf("desktopwidth:i:%d", width),
 		fmt.Sprintf("desktopheight:i:%d", height),
 		"session bpp:i:32",
-		"compression:i:1",
+		fmt.Sprintf("compression:i:%d", boolToInt(server.RDP.Compression)),
+		fmt.Sprintf("video playback mode:i:%d", boolToInt(server.RDP.VideoPlaybackMode)),
+		fmt.Sprintf("framebufferbuttons:i:%d", boolToInt(server.RDP.FramebufferButtons)),
 		"keyboardhook:i:2",
 		fmt.Sprintf("full address:s:127.0.0.1:%d", localPort),
 		fmt.Sprintf("server port:i:%d", localPort),
 		fmt.Sprintf("username:s:%s", username),
 		"prompt for credentials:i:0",
 		"promptcredentialonce:i:1",
-		"authentication level:i:2",
-		"enablecredsspsupport:i:1",
+		fmt.Sprintf("authentication level:i:%d", server.RDP.AuthenticationLevel),
+		fmt.Sprintf("enablecredsspsupport:i:%d", boolToInt(server.RDP.EnableCredSSPSupport)),
 		"negotiate security layer:i:1",
 		fmt.Sprintf("redirectclipboard:i:%d", boolToInt(server.RDP.RedirectClipboard)),
-		fmt.Sprintf("drivestoredirect:s:%s", driveRedirectValue(server.RDP.RedirectDisks)),
+		fmt.Sprintf("redirectprinters:i:%d", boolToInt(server.RDP.RedirectPrinters)),
+		fmt.Sprintf("drivestoredirect:s:%s", driveStoreDirect),
+		fmt.Sprintf("camerastoredirect:s:%s", strings.TrimSpace(server.RDP.CameraStoreDirect)),
+		fmt.Sprintf("devicestoredirect:s:%s", strings.TrimSpace(server.RDP.DeviceStoreDirect)),
 		fmt.Sprintf("audiomode:i:%d", audioMode(server.RDP.RedirectSound)),
-		fmt.Sprintf("smart sizing:i:%d", boolToInt(server.RDP.AdaptiveResolution)),
+		fmt.Sprintf("smart sizing:i:%d", boolToInt(server.RDP.SmartSizing)),
 		fmt.Sprintf("dynamic resolution:i:%d", boolToInt(server.RDP.AdaptiveResolution)),
+		fmt.Sprintf("connection type:i:%d", server.RDP.ConnectionType),
+		fmt.Sprintf("disable wallpaper:i:%d", boolToInt(server.RDP.DisableWallpaper)),
+		fmt.Sprintf("disable full window drag:i:%d", boolToInt(server.RDP.DisableFullWindowDrag)),
+		fmt.Sprintf("disable menu anims:i:%d", boolToInt(server.RDP.DisableMenuAnims)),
+		fmt.Sprintf("disable themes:i:%d", boolToInt(server.RDP.DisableThemes)),
+		fmt.Sprintf("use multimon:i:%d", boolToInt(server.RDP.UseMultiMon)),
+		fmt.Sprintf("remoteapplicationmode:i:%d", boolToInt(server.RDP.RemoteApplicationMode)),
+	}
+	if server.RDP.UseMultiMon {
+		if selectedMonitors := strings.TrimSpace(server.RDP.SelectedMonitors); selectedMonitors != "" {
+			lines = append(lines, fmt.Sprintf("selectedmonitors:s:%s", selectedMonitors))
+		}
 	}
 
 	content := strings.Join(lines, "\r\n") + "\r\n"
@@ -175,11 +193,14 @@ func resolveResolution(rdp RDPConfig) (int, int) {
 	return width, height
 }
 
-func driveRedirectValue(allow bool) string {
-	if allow {
-		return "*"
+func driveRedirectValue(rdp RDPConfig) string {
+	if mapped := strings.TrimSpace(rdp.DriveStoreDirect); mapped != "" {
+		return mapped
 	}
-	return ""
+	if !rdp.RedirectDisks {
+		return ""
+	}
+	return "*"
 }
 
 func audioMode(redirect bool) int {

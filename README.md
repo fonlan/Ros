@@ -24,11 +24,15 @@ Windows 平台的 `RDP over SSH` 图形工具，基于 `Go + Walk`。
   - 删除临时 `.rdp`
   - 删除临时 `cmdkey` 凭据
 - 支持系统托盘最小化/恢复。
+- 启用单实例模式：重复启动时会提示并退出后续实例。
 - RDP 参数可配置：
   - 自适应或固定分辨率
-  - 磁盘重定向
-  - 声音重定向
-  - 剪切板同步
+  - 磁盘/声音/剪切板重定向
+  - 显示与图形：`compression`、`video playback mode`、`smart sizing`、`framebufferbuttons`
+  - 资源重定向：`drivestoredirect`、`camerastoredirect`、`devicestoredirect`、`redirectprinters`
+  - 性能优化：`connection type`、`disable wallpaper/full window drag/menu anims/themes`
+  - 安全认证：`authentication level`、`enablecredsspsupport`
+  - 多显示器与 RemoteApp：`use multimon`、`selectedmonitors`、`remoteapplicationmode`
 
 ## 工作流程
 
@@ -75,7 +79,7 @@ go build -trimpath -ldflags "-H=windowsgui -s -w -buildid=" -o Ros.exe .
 
 1. 点击右上角 `+` 新增服务器。
 2. 在服务器配置中新增至少 1 条 SSH 隧道并设置优先级。
-3. 配置 RDP 用户名、密码和显示/重定向选项。
+3. 在同一个 `RDP 选项` 页中配置用户名、密码、基础显示/重定向和高级参数。
 4. 在主窗口单击服务器条目开始连接。
 5. 连接成功后窗口会自动最小化到托盘，结束远程会话后自动恢复。
 
@@ -88,6 +92,7 @@ go build -trimpath -ldflags "-H=windowsgui -s -w -buildid=" -o Ros.exe .
 核心文件：
 
 - `main_windows.go`: 程序入口。
+- `single_instance_windows.go`: 单实例互斥锁控制与重复启动提示。
 - `ui_main_windows.go`: 主窗口、托盘逻辑、连接流程触发。
 - `ui_server_dialog_windows.go`: 服务器配置对话框。
 - `ui_tunnel_dialog_windows.go`: SSH 隧道配置对话框。

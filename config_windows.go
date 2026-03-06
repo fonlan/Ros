@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 const (
@@ -20,6 +21,8 @@ const (
 	defaultTimeoutSec   = 12
 	defaultDesktopWidth = 1920
 	defaultDesktopHigh  = 1080
+	defaultConnType     = 7
+	defaultAuthLevel    = 2
 )
 
 type AppConfig struct {
@@ -34,15 +37,34 @@ type ServerConfig struct {
 }
 
 type RDPConfig struct {
-	Username           string `json:"username"`
-	Password           string `json:"password"`
-	Domain             string `json:"domain"`
-	AdaptiveResolution bool   `json:"adaptive_resolution"`
-	DesktopWidth       int    `json:"desktop_width"`
-	DesktopHeight      int    `json:"desktop_height"`
-	RedirectDisks      bool   `json:"redirect_disks"`
-	RedirectSound      bool   `json:"redirect_sound"`
-	RedirectClipboard  bool   `json:"redirect_clipboard"`
+	Username                  string `json:"username"`
+	Password                  string `json:"password"`
+	Domain                    string `json:"domain"`
+	AdaptiveResolution        bool   `json:"adaptive_resolution"`
+	DesktopWidth              int    `json:"desktop_width"`
+	DesktopHeight             int    `json:"desktop_height"`
+	RedirectDisks             bool   `json:"redirect_disks"`
+	RedirectSound             bool   `json:"redirect_sound"`
+	RedirectClipboard         bool   `json:"redirect_clipboard"`
+	Compression               bool   `json:"compression"`
+	VideoPlaybackMode         bool   `json:"video_playback_mode"`
+	SmartSizing               bool   `json:"smart_sizing"`
+	FramebufferButtons        bool   `json:"framebuffer_buttons"`
+	DriveStoreDirect          string `json:"drive_store_direct"`
+	CameraStoreDirect         string `json:"camera_store_direct"`
+	DeviceStoreDirect         string `json:"device_store_direct"`
+	RedirectPrinters          bool   `json:"redirect_printers"`
+	ConnectionType            int    `json:"connection_type"`
+	DisableWallpaper          bool   `json:"disable_wallpaper"`
+	DisableFullWindowDrag     bool   `json:"disable_full_window_drag"`
+	DisableMenuAnims          bool   `json:"disable_menu_anims"`
+	DisableThemes             bool   `json:"disable_themes"`
+	AuthenticationLevel       int    `json:"authentication_level"`
+	EnableCredSSPSupport      bool   `json:"enable_credssp_support"`
+	UseMultiMon               bool   `json:"use_multimon"`
+	SelectedMonitors          string `json:"selected_monitors"`
+	RemoteApplicationMode     bool   `json:"remote_application_mode"`
+	AdvancedOptionsConfigured bool   `json:"advanced_options_configured,omitempty"`
 }
 
 type TunnelConfig struct {
@@ -184,12 +206,7 @@ func normalizeServerConfig(server *ServerConfig) {
 		server.Name = "新服务器"
 	}
 
-	if server.RDP.DesktopWidth <= 0 {
-		server.RDP.DesktopWidth = defaultDesktopWidth
-	}
-	if server.RDP.DesktopHeight <= 0 {
-		server.RDP.DesktopHeight = defaultDesktopHigh
-	}
+	normalizeRDPConfig(&server.RDP)
 
 	if server.Tunnels == nil {
 		server.Tunnels = []*TunnelConfig{}
@@ -199,6 +216,49 @@ func normalizeServerConfig(server *ServerConfig) {
 		normalizeTunnelConfig(tunnel)
 	}
 	normalizeTunnelPriorities(server.Tunnels)
+}
+
+func normalizeRDPConfig(rdp *RDPConfig) {
+	if rdp == nil {
+		return
+	}
+
+	if rdp.DesktopWidth <= 0 {
+		rdp.DesktopWidth = defaultDesktopWidth
+	}
+	if rdp.DesktopHeight <= 0 {
+		rdp.DesktopHeight = defaultDesktopHigh
+	}
+
+	if !rdp.AdvancedOptionsConfigured {
+		rdp.Compression = true
+		rdp.VideoPlaybackMode = true
+		rdp.SmartSizing = rdp.AdaptiveResolution
+		rdp.FramebufferButtons = true
+		if strings.TrimSpace(rdp.DriveStoreDirect) == "" && rdp.RedirectDisks {
+			rdp.DriveStoreDirect = "*"
+		}
+		rdp.ConnectionType = defaultConnType
+		rdp.DisableWallpaper = true
+		rdp.DisableFullWindowDrag = true
+		rdp.DisableMenuAnims = true
+		rdp.DisableThemes = true
+		rdp.AuthenticationLevel = defaultAuthLevel
+		rdp.EnableCredSSPSupport = true
+		rdp.AdvancedOptionsConfigured = true
+	}
+
+	rdp.DriveStoreDirect = strings.TrimSpace(rdp.DriveStoreDirect)
+	rdp.CameraStoreDirect = strings.TrimSpace(rdp.CameraStoreDirect)
+	rdp.DeviceStoreDirect = strings.TrimSpace(rdp.DeviceStoreDirect)
+	rdp.SelectedMonitors = strings.TrimSpace(rdp.SelectedMonitors)
+
+	if rdp.ConnectionType < 1 || rdp.ConnectionType > 7 {
+		rdp.ConnectionType = defaultConnType
+	}
+	if rdp.AuthenticationLevel < 0 || rdp.AuthenticationLevel > 2 {
+		rdp.AuthenticationLevel = defaultAuthLevel
+	}
 }
 
 func normalizeTunnelConfig(tunnel *TunnelConfig) {
@@ -267,12 +327,31 @@ func cloneServerConfig(src *ServerConfig) *ServerConfig {
 			Name:    "新服务器",
 			Tunnels: []*TunnelConfig{},
 			RDP: RDPConfig{
-				AdaptiveResolution: true,
-				DesktopWidth:       defaultDesktopWidth,
-				DesktopHeight:      defaultDesktopHigh,
-				RedirectDisks:      false,
-				RedirectSound:      true,
-				RedirectClipboard:  true,
+				AdaptiveResolution:        true,
+				DesktopWidth:              defaultDesktopWidth,
+				DesktopHeight:             defaultDesktopHigh,
+				RedirectDisks:             false,
+				RedirectSound:             true,
+				RedirectClipboard:         true,
+				Compression:               true,
+				VideoPlaybackMode:         true,
+				SmartSizing:               true,
+				FramebufferButtons:        true,
+				DriveStoreDirect:          "",
+				CameraStoreDirect:         "",
+				DeviceStoreDirect:         "",
+				RedirectPrinters:          false,
+				ConnectionType:            defaultConnType,
+				DisableWallpaper:          true,
+				DisableFullWindowDrag:     true,
+				DisableMenuAnims:          true,
+				DisableThemes:             true,
+				AuthenticationLevel:       defaultAuthLevel,
+				EnableCredSSPSupport:      true,
+				UseMultiMon:               false,
+				SelectedMonitors:          "",
+				RemoteApplicationMode:     false,
+				AdvancedOptionsConfigured: true,
 			},
 		}
 	}
