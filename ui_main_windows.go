@@ -5,12 +5,15 @@ package main
 import (
 	"fmt"
 	"sync"
+	"syscall"
 	"unsafe"
 
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
 	"github.com/lxn/win"
 )
+
+var shellNotifyIconGetRect = syscall.NewLazyDLL("shell32.dll").NewProc("Shell_NotifyIconGetRect")
 
 type RosApp struct {
 	configPath string
@@ -35,6 +38,25 @@ type RosApp struct {
 	lastNormalBounds       walk.Rectangle
 	wasMinimized           bool
 	restoringWindowBounds  bool
+}
+
+const (
+	notifyIconMenuShow uint32 = 1
+	notifyIconMenuExit uint32 = 2
+)
+
+type trayGUID struct {
+	Data1 uint32
+	Data2 uint16
+	Data3 uint16
+	Data4 [8]byte
+}
+
+type notifyIconIdentifier struct {
+	CbSize   uint32
+	HWnd     win.HWND
+	UID      uint32
+	GuidItem trayGUID
 }
 
 func NewRosApp() (*RosApp, error) {
@@ -191,32 +213,13 @@ func (a *RosApp) initNotifyIcon() error {
 		return fail("设置托盘提示失败", err)
 	}
 
-	showAction := walk.NewAction()
-	if err := showAction.SetText("显示主界面"); err != nil {
-		return fail("创建托盘菜单失败", err)
-	}
-	showAction.Triggered().Attach(func() {
-		a.showMainWindowFromTray()
-	})
-
-	exitAction := walk.NewAction()
-	if err := exitAction.SetText("退出"); err != nil {
-		return fail("创建托盘菜单失败", err)
-	}
-	exitAction.Triggered().Attach(func() {
-		a.exitFromTray()
-	})
-
-	if err := ni.ContextMenu().Actions().Add(showAction); err != nil {
-		return fail("添加托盘菜单失败", err)
-	}
-	if err := ni.ContextMenu().Actions().Add(exitAction); err != nil {
-		return fail("添加托盘菜单失败", err)
-	}
-
 	ni.MouseUp().Attach(func(x, y int, button walk.MouseButton) {
 		if button == walk.LeftButton {
 			a.showMainWindowFromTray()
+			return
+		}
+		if button == walk.RightButton {
+			a.showNotifyIconContextMenu(x, y)
 		}
 	})
 
@@ -226,6 +229,114 @@ func (a *RosApp) initNotifyIcon() error {
 
 	a.notifyIcon = ni
 	return nil
+}
+
+func (a *RosApp) showNotifyIconContextMenu(screenX, screenY int) {
+	point := a.resolveNotifyIconPopupPoint(screenX, screenY)
+	owner := a.notifyIconPopupOwner(point)
+	if owner == 0 {
+		return
+	}
+
+	menu := win.CreatePopupMenu()
+	if menu == 0 {
+		return
+	}
+	defer win.DestroyMenu(menu)
+
+	if !insertNotifyIconMenuItem(menu, 0, notifyIconMenuShow, "显示主界面") {
+		return
+	}
+	if !insertNotifyIconMenuItem(menu, 1, notifyIconMenuExit, "退出") {
+		return
+	}
+
+	win.SetForegroundWindow(owner)
+	command := uint32(win.TrackPopupMenuEx(
+		menu,
+		win.TPM_NOANIMATION|win.TPM_RETURNCMD|win.TPM_RIGHTBUTTON,
+		point.X,
+		point.Y,
+		owner,
+		nil,
+	))
+	win.PostMessage(owner, win.WM_NULL, 0, 0)
+
+	switch command {
+	case notifyIconMenuShow:
+		a.showMainWindowFromTray()
+	case notifyIconMenuExit:
+		a.exitFromTray()
+	}
+}
+
+func insertNotifyIconMenuItem(menu win.HMENU, position uint32, itemID uint32, text string) bool {
+	textUTF16 := syscall.StringToUTF16(text)
+	item := win.MENUITEMINFO{
+		CbSize:     uint32(unsafe.Sizeof(win.MENUITEMINFO{})),
+		FMask:      win.MIIM_ID | win.MIIM_FTYPE | win.MIIM_STATE | win.MIIM_STRING,
+		FType:      win.MFT_STRING,
+		FState:     win.MFS_ENABLED,
+		WID:        itemID,
+		DwTypeData: &textUTF16[0],
+		Cch:        uint32(len(text)),
+	}
+	return win.InsertMenuItem(menu, position, true, &item)
+}
+
+func (a *RosApp) resolveNotifyIconPopupPoint(screenX, screenY int) win.POINT {
+	point := win.POINT{X: int32(screenX), Y: int32(screenY)}
+	rect, ok := a.notifyIconScreenRect()
+	if !ok {
+		return point
+	}
+	if rectContainsPoint(rect, point) {
+		return point
+	}
+	return win.POINT{
+		X: rect.Left + (rect.Right-rect.Left)/2,
+		Y: rect.Top + (rect.Bottom-rect.Top)/2,
+	}
+}
+
+func (a *RosApp) notifyIconScreenRect() (win.RECT, bool) {
+	var rect win.RECT
+	if a.notifyIcon == nil || a.mw == nil || a.mw.IsDisposed() {
+		return rect, false
+	}
+	if err := shellNotifyIconGetRect.Find(); err != nil {
+		return rect, false
+	}
+
+	identifier := notifyIconIdentifier{
+		CbSize: uint32(unsafe.Sizeof(notifyIconIdentifier{})),
+		HWnd:   a.mw.Handle(),
+	}
+	result, _, _ := shellNotifyIconGetRect.Call(
+		uintptr(unsafe.Pointer(&identifier)),
+		uintptr(unsafe.Pointer(&rect)),
+	)
+	if int32(result) < 0 {
+		return rect, false
+	}
+	return rect, true
+}
+
+func (a *RosApp) notifyIconPopupOwner(point win.POINT) win.HWND {
+	if hwnd := win.WindowFromPoint(point); hwnd != 0 {
+		if root := win.GetAncestor(hwnd, win.GA_ROOT); root != 0 {
+			return root
+		}
+		return hwnd
+	}
+	if a.mw == nil || a.mw.IsDisposed() {
+		return 0
+	}
+	return a.mw.Handle()
+}
+
+func rectContainsPoint(rect win.RECT, point win.POINT) bool {
+	return point.X >= rect.Left && point.X < rect.Right && point.Y >= rect.Top && point.Y < rect.Bottom
 }
 
 func (a *RosApp) bindMainWindowEvents() {
