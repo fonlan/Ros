@@ -37,34 +37,34 @@ type ServerConfig struct {
 }
 
 type RDPConfig struct {
-	Username                  string `json:"username"`
-	Password                  string `json:"password"`
-	Domain                    string `json:"domain"`
-	AdaptiveResolution        bool   `json:"adaptive_resolution"`
-	DesktopWidth              int    `json:"desktop_width"`
-	DesktopHeight             int    `json:"desktop_height"`
-	RedirectDisks             bool   `json:"redirect_disks"`
-	RedirectSound             bool   `json:"redirect_sound"`
-	RedirectClipboard         bool   `json:"redirect_clipboard"`
-	Compression               bool   `json:"compression"`
-	VideoPlaybackMode         bool   `json:"video_playback_mode"`
-	SmartSizing               bool   `json:"smart_sizing"`
-	FramebufferButtons        bool   `json:"framebuffer_buttons"`
-	DriveStoreDirect          string `json:"drive_store_direct"`
-	CameraStoreDirect         string `json:"camera_store_direct"`
-	DeviceStoreDirect         string `json:"device_store_direct"`
-	RedirectPrinters          bool   `json:"redirect_printers"`
-	ConnectionType            int    `json:"connection_type"`
-	DisableWallpaper          bool   `json:"disable_wallpaper"`
-	DisableFullWindowDrag     bool   `json:"disable_full_window_drag"`
-	DisableMenuAnims          bool   `json:"disable_menu_anims"`
-	DisableThemes             bool   `json:"disable_themes"`
-	AuthenticationLevel       int    `json:"authentication_level"`
-	EnableCredSSPSupport      bool   `json:"enable_credssp_support"`
-	UseMultiMon               bool   `json:"use_multimon"`
-	SelectedMonitors          string `json:"selected_monitors"`
-	RemoteApplicationMode     bool   `json:"remote_application_mode"`
-	AdvancedOptionsConfigured bool   `json:"advanced_options_configured,omitempty"`
+	Username              string `json:"username"`
+	Password              string `json:"password"`
+	Domain                string `json:"domain"`
+	AdaptiveResolution    bool   `json:"adaptive_resolution"`
+	DesktopWidth          int    `json:"desktop_width"`
+	DesktopHeight         int    `json:"desktop_height"`
+	RedirectDisks         bool   `json:"redirect_disks"`
+	RedirectSound         bool   `json:"redirect_sound"`
+	RedirectClipboard     bool   `json:"redirect_clipboard"`
+	Compression           bool   `json:"compression"`
+	VideoPlaybackMode     bool   `json:"video_playback_mode"`
+	SmartSizing           bool   `json:"smart_sizing"`
+	FramebufferButtons    bool   `json:"framebuffer_buttons"`
+	DriveStoreDirect      string `json:"drive_store_direct"`
+	CameraStoreDirect     string `json:"camera_store_direct"`
+	DeviceStoreDirect     string `json:"device_store_direct"`
+	RedirectPrinters      bool   `json:"redirect_printers"`
+	ConnectionType        int    `json:"connection_type"`
+	DisableWallpaper      bool   `json:"disable_wallpaper"`
+	DisableFullWindowDrag bool   `json:"disable_full_window_drag"`
+	DisableMenuAnims      bool   `json:"disable_menu_anims"`
+	DisableThemes         bool   `json:"disable_themes"`
+	AuthenticationLevel   int    `json:"authentication_level"`
+	EnableCredSSPSupport  bool   `json:"enable_credssp_support"`
+	UseMultiMon           bool   `json:"use_multimon"`
+	SelectedMonitors      string `json:"selected_monitors"`
+
+	AdvancedOptionsConfigured bool `json:"advanced_options_configured,omitempty"`
 }
 
 type TunnelConfig struct {
@@ -327,30 +327,30 @@ func cloneServerConfig(src *ServerConfig) *ServerConfig {
 			Name:    "新服务器",
 			Tunnels: []*TunnelConfig{},
 			RDP: RDPConfig{
-				AdaptiveResolution:        true,
-				DesktopWidth:              defaultDesktopWidth,
-				DesktopHeight:             defaultDesktopHigh,
-				RedirectDisks:             false,
-				RedirectSound:             true,
-				RedirectClipboard:         true,
-				Compression:               true,
-				VideoPlaybackMode:         true,
-				SmartSizing:               true,
-				FramebufferButtons:        true,
-				DriveStoreDirect:          "",
-				CameraStoreDirect:         "",
-				DeviceStoreDirect:         "",
-				RedirectPrinters:          false,
-				ConnectionType:            defaultConnType,
-				DisableWallpaper:          true,
-				DisableFullWindowDrag:     true,
-				DisableMenuAnims:          true,
-				DisableThemes:             true,
-				AuthenticationLevel:       defaultAuthLevel,
-				EnableCredSSPSupport:      true,
-				UseMultiMon:               false,
-				SelectedMonitors:          "",
-				RemoteApplicationMode:     false,
+				AdaptiveResolution:    true,
+				DesktopWidth:          defaultDesktopWidth,
+				DesktopHeight:         defaultDesktopHigh,
+				RedirectDisks:         false,
+				RedirectSound:         true,
+				RedirectClipboard:     true,
+				Compression:           true,
+				VideoPlaybackMode:     true,
+				SmartSizing:           true,
+				FramebufferButtons:    true,
+				DriveStoreDirect:      "",
+				CameraStoreDirect:     "",
+				DeviceStoreDirect:     "",
+				RedirectPrinters:      false,
+				ConnectionType:        defaultConnType,
+				DisableWallpaper:      true,
+				DisableFullWindowDrag: true,
+				DisableMenuAnims:      true,
+				DisableThemes:         true,
+				AuthenticationLevel:   defaultAuthLevel,
+				EnableCredSSPSupport:  true,
+				UseMultiMon:           false,
+				SelectedMonitors:      "",
+
 				AdvancedOptionsConfigured: true,
 			},
 		}

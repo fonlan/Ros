@@ -109,7 +109,6 @@ func writeRDPTempFile(server *ServerConfig, localPort int) (string, error) {
 		fmt.Sprintf("disable menu anims:i:%d", boolToInt(server.RDP.DisableMenuAnims)),
 		fmt.Sprintf("disable themes:i:%d", boolToInt(server.RDP.DisableThemes)),
 		fmt.Sprintf("use multimon:i:%d", boolToInt(server.RDP.UseMultiMon)),
-		fmt.Sprintf("remoteapplicationmode:i:%d", boolToInt(server.RDP.RemoteApplicationMode)),
 	}
 	if server.RDP.UseMultiMon {
 		if selectedMonitors := strings.TrimSpace(server.RDP.SelectedMonitors); selectedMonitors != "" {

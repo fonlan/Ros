@@ -27,12 +27,10 @@ Windows 平台的 `RDP over SSH` 图形工具，基于 `Go + Walk`。
 - 启用单实例模式：重复启动时会提示并退出后续实例。
 - RDP 参数可配置：
   - 自适应或固定分辨率
-  - 磁盘/声音/剪切板重定向
-  - 显示与图形：`compression`、`video playback mode`、`smart sizing`、`framebufferbuttons`
-  - 资源重定向：`drivestoredirect`、`camerastoredirect`、`devicestoredirect`、`redirectprinters`
+  - 显示与图形：分辨率自适应、多显示器（`use multimon`、`selectedmonitors`）、`compression`、`video playback mode`、`smart sizing`、`framebufferbuttons`
+  - 资源重定向：剪贴板、声音、`drivestoredirect`、`camerastoredirect`、`devicestoredirect`、`redirectprinters`
   - 性能优化：`connection type`、`disable wallpaper/full window drag/menu anims/themes`
   - 安全认证：`authentication level`、`enablecredsspsupport`
-  - 多显示器与 RemoteApp：`use multimon`、`selectedmonitors`、`remoteapplicationmode`
 
 ## 工作流程
 

@@ -20,7 +20,7 @@ func showServerDialog(owner walk.Form, initial *ServerConfig) (*ServerConfig, bo
 	var compressionCB, videoPlaybackCB, smartSizingCB, framebufferButtonsCB *walk.CheckBox
 	var printersCB *walk.CheckBox
 	var disableWallpaperCB, disableFullDragCB, disableMenuAnimsCB, disableThemesCB *walk.CheckBox
-	var credSSPCB, useMultimonCB, remoteAppCB *walk.CheckBox
+	var credSSPCB, useMultimonCB *walk.CheckBox
 	var widthLE, heightLE *walk.LineEdit
 	var driveStoreDirectLE, cameraStoreDirectLE, deviceStoreDirectLE *walk.LineEdit
 	var connectionTypeLE, authenticationLevelLE, selectedMonitorsLE *walk.LineEdit
@@ -221,7 +221,7 @@ func showServerDialog(owner walk.Form, initial *ServerConfig) (*ServerConfig, bo
 								},
 								Children: []Widget{
 									GroupBox{
-										Title: "基础选项",
+										Title: "显示与图形",
 										Layout: Grid{
 											Columns:   2,
 											Alignment: AlignHNearVNear,
@@ -242,48 +242,46 @@ func showServerDialog(owner walk.Form, initial *ServerConfig) (*ServerConfig, bo
 											LineEdit{AssignTo: &widthLE, Text: strconv.Itoa(working.RDP.DesktopWidth)},
 											Label{Text: "固定高度"},
 											LineEdit{AssignTo: &heightLE, Text: strconv.Itoa(working.RDP.DesktopHeight)},
-
 											CheckBox{
-												AssignTo:   &soundCB,
-												Text:       "声音重定向",
-												Checked:    working.RDP.RedirectSound,
+												AssignTo:   &useMultimonCB,
+												Text:       "启用多显示器",
+												Checked:    working.RDP.UseMultiMon,
+												ColumnSpan: 2,
+												OnCheckedChanged: func() {
+													if selectedMonitorsLE != nil {
+														selectedMonitorsLE.SetEnabled(useMultimonCB.Checked())
+													}
+												},
+											},
+											Label{Text: "指定显示器编号（示例：0,1）"},
+											LineEdit{
+												AssignTo: &selectedMonitorsLE,
+												Text:     working.RDP.SelectedMonitors,
+											},
+											CheckBox{
+												AssignTo:   &compressionCB,
+												Text:       "启用图像压缩",
+												Checked:    working.RDP.Compression,
 												ColumnSpan: 2,
 											},
 											CheckBox{
-												AssignTo:   &clipboardCB,
-												Text:       "剪贴板同步",
-												Checked:    working.RDP.RedirectClipboard,
+												AssignTo:   &videoPlaybackCB,
+												Text:       "启用视频播放优化",
+												Checked:    working.RDP.VideoPlaybackMode,
 												ColumnSpan: 2,
 											},
-										},
-									},
-									GroupBox{
-										Title: "显示与图形",
-										Layout: VBox{
-											Alignment: AlignHNearVNear,
-										},
-										Children: []Widget{
 											CheckBox{
-												AssignTo: &compressionCB,
-												Text:     "启用图像压缩",
-												Checked:  working.RDP.Compression,
+												AssignTo:   &smartSizingCB,
+												Text:       "启用窗口缩放（随窗口大小自动缩放）",
+												Checked:    working.RDP.SmartSizing,
+												ColumnSpan: 2,
 											},
 											CheckBox{
-												AssignTo: &videoPlaybackCB,
-												Text:     "启用视频播放优化",
-												Checked:  working.RDP.VideoPlaybackMode,
+												AssignTo:   &framebufferButtonsCB,
+												Text:       "启用图形交互增强",
+												Checked:    working.RDP.FramebufferButtons,
+												ColumnSpan: 2,
 											},
-											CheckBox{
-												AssignTo: &smartSizingCB,
-												Text:     "启用窗口缩放（随窗口大小自动缩放）",
-												Checked:  working.RDP.SmartSizing,
-											},
-											CheckBox{
-												AssignTo: &framebufferButtonsCB,
-												Text:     "启用图形交互增强",
-												Checked:  working.RDP.FramebufferButtons,
-											},
-											HSpacer{},
 										},
 									},
 									GroupBox{
@@ -293,6 +291,18 @@ func showServerDialog(owner walk.Form, initial *ServerConfig) (*ServerConfig, bo
 											Alignment: AlignHNearVNear,
 										},
 										Children: []Widget{
+											CheckBox{
+												AssignTo:   &clipboardCB,
+												Text:       "剪贴板同步",
+												Checked:    working.RDP.RedirectClipboard,
+												ColumnSpan: 2,
+											},
+											CheckBox{
+												AssignTo:   &soundCB,
+												Text:       "声音重定向",
+												Checked:    working.RDP.RedirectSound,
+												ColumnSpan: 2,
+											},
 											CheckBox{
 												AssignTo:   &diskCB,
 												Text:       "启用磁盘重定向",
@@ -385,37 +395,6 @@ func showServerDialog(owner walk.Form, initial *ServerConfig) (*ServerConfig, bo
 											},
 										},
 									},
-									GroupBox{
-										Title: "多显示器与远程应用",
-										Layout: Grid{
-											Columns:   2,
-											Alignment: AlignHNearVNear,
-										},
-										Children: []Widget{
-											CheckBox{
-												AssignTo:   &useMultimonCB,
-												Text:       "启用多显示器",
-												Checked:    working.RDP.UseMultiMon,
-												ColumnSpan: 2,
-												OnCheckedChanged: func() {
-													if selectedMonitorsLE != nil {
-														selectedMonitorsLE.SetEnabled(useMultimonCB.Checked())
-													}
-												},
-											},
-											Label{Text: "指定显示器编号（示例：0,1）"},
-											LineEdit{
-												AssignTo: &selectedMonitorsLE,
-												Text:     working.RDP.SelectedMonitors,
-											},
-											CheckBox{
-												AssignTo:   &remoteAppCB,
-												Text:       "启用远程应用模式",
-												Checked:    working.RDP.RemoteApplicationMode,
-												ColumnSpan: 2,
-											},
-										},
-									},
 								},
 							},
 						},
@@ -466,7 +445,6 @@ func showServerDialog(owner walk.Form, initial *ServerConfig) (*ServerConfig, bo
 							working.RDP.EnableCredSSPSupport = credSSPCB.Checked()
 							working.RDP.UseMultiMon = useMultimonCB.Checked()
 							working.RDP.SelectedMonitors = strings.TrimSpace(selectedMonitorsLE.Text())
-							working.RDP.RemoteApplicationMode = remoteAppCB.Checked()
 							working.RDP.AdvancedOptionsConfigured = true
 
 							connType, err := strconv.Atoi(strings.TrimSpace(connectionTypeLE.Text()))
