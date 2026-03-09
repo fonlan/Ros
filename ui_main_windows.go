@@ -322,13 +322,7 @@ func (a *RosApp) notifyIconScreenRect() (win.RECT, bool) {
 	return rect, true
 }
 
-func (a *RosApp) notifyIconPopupOwner(point win.POINT) win.HWND {
-	if hwnd := win.WindowFromPoint(point); hwnd != 0 {
-		if root := win.GetAncestor(hwnd, win.GA_ROOT); root != 0 {
-			return root
-		}
-		return hwnd
-	}
+func (a *RosApp) notifyIconPopupOwner(_ win.POINT) win.HWND {
 	if a.mw == nil || a.mw.IsDisposed() {
 		return 0
 	}
